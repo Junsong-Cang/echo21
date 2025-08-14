@@ -145,7 +145,7 @@ class pipeline():
     Methods
     ~~~~~~~
     '''
-    def __init__(self,cosmo=None,astro= None, sfrd_dic=None,Z_eval=None,path='echo21_outputs/'):
+    def __init__(self,cosmo=None,astro= None, sfrd_dic=None,Z_eval=None,path='echo21_outputs/', verbose = 1):
 
         if cosmo is None:
             cosmo = {
@@ -163,6 +163,7 @@ class pipeline():
 
         self.cosmo=cosmo
         self.astro=astro
+        self.verbose = verbose
 
         
         ####
@@ -280,19 +281,19 @@ class pipeline():
             print('Terminating ...\033[00m\n')
             sys.exit()
 
-
         #Create an output folder where all results will be saved.
         self.path=path
         if self.cpu_ind==0:
-            if os.path.isdir(self.path)==False:
-                print('The requested directory does not exist. Creating ',self.path)
-                os.mkdir(self.path)
+            if verbose:
+                if os.path.isdir(self.path)==False:
+                    print('The requested directory does not exist. Creating ',self.path)
+                    os.mkdir(self.path)
             
-            self.timestamp = strftime("%Y%m%d-%H%M%S", localtime())
-            self.path = self.path + 'output_'+self.timestamp+'/'
-            os.mkdir(self.path)
+                self.timestamp = strftime("%Y%m%d-%H%M%S", localtime())
+                self.path = self.path + 'output_'+self.timestamp+'/'
+                os.mkdir(self.path)
 
-            self.formatted_timestamp = self.timestamp[9:11]+':'+self.timestamp[11:13]+':'+self.timestamp[13:15]+' '+self.timestamp[6:8]+'/'+self.timestamp[4:6]+'/'+ self.timestamp[:4]
+                self.formatted_timestamp = self.timestamp[9:11]+':'+self.timestamp[11:13]+':'+self.timestamp[13:15]+' '+self.timestamp[6:8]+'/'+self.timestamp[4:6]+'/'+ self.timestamp[:4]
 
             # save_pipeline(self,'pipe') # JSC: don't need this
         return None
@@ -416,15 +417,18 @@ class pipeline():
     def glob_sig(self):
         '''
         This function solves the thermal and ionization history for default values of redshifts and then interpolates the quantities at your choice of redshifts. Then it solves reionization. Finally, it computes the spin temperature and hence the global 21-cm signal. A text file is generated which will contain the basic information about the simulation. 
-        ''' 
-
+        '''
+        verbose = self.verbose
         if self.model==0:
         #Cosmological and astrophysical parameters are fixed.
             if self.cpu_ind==0:
-                print_banner()
-                if self.is_idm: print('Dark matter type: interacting')
-                else: print('Dark matter type: cold')
-                print('\nBoth cosmological and astrophysical parameters are fixed.\n')
+                if verbose:
+                    print_banner()
+                    if self.is_idm:
+                        print('Dark matter type: interacting')
+                    else:
+                        print('Dark matter type: cold')
+                    print('\nBoth cosmological and astrophysical parameters are fixed.\n')
                 
                 st = time.process_time()
                 
@@ -451,7 +455,7 @@ class pipeline():
                     else:
                         Z_temp = self.Z_eval
                 
-                print('Obtaining the thermal and ionisation history ...')
+                if verbose: print('Obtaining the thermal and ionisation history ...')
                 sol = myobj.igm_solver(Z_eval=Z_default)
                 
                 xe = sol[0]
@@ -478,13 +482,13 @@ class pipeline():
                         splvbx = CubicSpline(flipped_Z_default, np.flip(v_bx))
                         v_bx = splvbx(self.Z_eval)
 
-                print('Obtaining spin temperature ...')
+                if verbose: print('Obtaining spin temperature ...')
                 Ts = myobj.hyfi_spin_temp(Z=Z_temp,xe=xe,Tk=Tk)
 
-                print('Computing the 21-cm signal ...')
+                if verbose: print('Computing the 21-cm signal ...')
                 T21_mod1 = myobj.hyfi_twentyone_cm(Z=Z_temp,xe=xe,Q=Q_Hii,Ts=Ts)
                 
-                print('Done.')
+                if verbose: print('Done.')
 
                 xe_save_name = self.path+'xe'
                 Q_save_name = self.path+'Q'
@@ -493,27 +497,38 @@ class pipeline():
                 Tcmb_save_name = self.path+'Tcmb'
                 T21_save_name = self.path+'T21'
                 z_save_name = self.path+'one_plus_z'
-
-                np.save(xe_save_name,xe)
-                np.save(Q_save_name,Q_Hii)
-                np.save(Tk_save_name,Tk)
-                np.save(Ts_save_name,Ts)
-                np.save(Tcmb_save_name,myobj.basic_cosmo_Tcmb(Z_temp))
-                np.save(T21_save_name,T21_mod1)
-                np.save(z_save_name,Z_temp)
-
-                if self.is_idm:
+                if verbose:
+                    np.save(xe_save_name,xe)
+                    np.save(Q_save_name,Q_Hii)
+                    np.save(Tk_save_name,Tk)
+                    np.save(Ts_save_name,Ts)
+                    np.save(Tcmb_save_name,myobj.basic_cosmo_Tcmb(Z_temp))
+                    np.save(T21_save_name,T21_mod1)
+                    np.save(z_save_name,Z_temp)
+                
+                if self.is_idm and verbose:
                     Tx_save_name = self.path+'Tx'
                     vbx_save_name = self.path+'vbx'
                     np.save(Tx_save_name,Tx)
                     np.save(vbx_save_name,v_bx)
                 
-                print('\033[32mYour outputs have been saved into folder:',self.path,'\033[00m')
+                results = {
+                    'z': Z_temp,
+                    'T21': T21_mod1,
+                    'Ts': Ts,
+                    'Tk': Tk,
+                    'Tx': Tx,
+                    'xe': xe,
+                    'xH': 1 - Q_Hii - (1-Q_Hii) * xe,
+                    'Q': Q_Hii,
+                    }
+
+                if verbose: print('\033[32mYour outputs have been saved into folder:',self.path,'\033[00m')
                 
                 et = time.process_time()
                 # get the execution time
                 elapsed_time = et - st
-                print('\nExecution time: %.2f seconds' %elapsed_time)
+                if verbose: print('\nExecution time: %.2f seconds' %elapsed_time)
 
                 #========================================================
                 #Writing to a summary file
@@ -537,23 +552,26 @@ class pipeline():
                         print('\n{:.1f} % universe reionised by {:.1f}'.format(100*Q_Hii[-1], Z_temp[-1]-1))
                 except:
                     print('\n{:.1f} % universe reionised by {:.1f}'.format(100*Q_Hii[-1], Z_temp[-1]-1))
-
-                myfile = self._write_summary(elapsed_time=elapsed_time)
+                if verbose:
+                    myfile = self._write_summary(elapsed_time=elapsed_time)
                 
-                if z50!=None:
-                    myfile.write('\n50% reionisation complete at z = {:.2f}'.format(z50))
-                    if z100!=None:
-                        myfile.write("\nReionisation complete at z = {:.2f}".format(z100))
-                        myfile.write("\nTotal Thomson-scattering optical depth = {:.4f}".format(tau_e))
+                    if z50!=None:
+                        myfile.write('\n50% reionisation complete at z = {:.2f}'.format(z50))
+                        if z100!=None:
+                            myfile.write("\nReionisation complete at z = {:.2f}".format(z100))
+                            myfile.write("\nTotal Thomson-scattering optical depth = {:.4f}".format(tau_e))
 
-                try: myfile.write('\n\nStrongest 21-cm signal is {:.2f} mK, observed at z = {:.2f}'.format(max_T21,max_z-1))
-                except: pass
-                myfile.write('\n')
-                myfile.close()
+                    try: myfile.write('\n\nStrongest 21-cm signal is {:.2f} mK, observed at z = {:.2f}'.format(max_T21,max_z-1))
+                    except: pass
+                    myfile.write('\n')
+                    myfile.close()
                 #========================================================
 
-                print('\n\033[94m================ End of ECHO21 ================\033[00m\n')
-                return None
+                if verbose: print('\n\033[94m================ End of ECHO21 ================\033[00m\n')
+                # print("JSC module in use")
+
+                # return None
+                return results
 
 #=========================================================================
 #=========================================================================

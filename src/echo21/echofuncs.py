@@ -399,7 +399,6 @@ class funcs():
     #End of functions related to recombination
     #========================================================================================================
     
-    
     def dndlnM(self, M,Z):
         '''
         The halo mass function (HMF) in the form of :math:`\\mathrm{d}n/\\mathrm{d\\,ln}M`. Note the natural logarithm.
@@ -421,7 +420,7 @@ class funcs():
         '''
         M_by_h = M*self.h100 #M is in solar mass units and M_by_h is in units of solar mass/h.
         return self.h100**3*mass_function.massFunction(M_by_h, Z-1, q_in='M', q_out='dndlnM', mdef = self.mdef, model = self.hmf)
-
+    
     def dndM(self,M,Z):
         '''
         The halo mass function (HMF) in a different form, i.e., :math:`\\mathrm{d}n/\\mathrm{d}M`.
