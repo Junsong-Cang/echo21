@@ -294,7 +294,7 @@ class pipeline():
 
             self.formatted_timestamp = self.timestamp[9:11]+':'+self.timestamp[11:13]+':'+self.timestamp[13:15]+' '+self.timestamp[6:8]+'/'+self.timestamp[4:6]+'/'+ self.timestamp[:4]
 
-            save_pipeline(self,'pipe')
+            # save_pipeline(self,'pipe') # JSC: don't need this
         return None
 
     def _write_summary(self, elapsed_time):
@@ -507,8 +507,6 @@ class pipeline():
                     vbx_save_name = self.path+'vbx'
                     np.save(Tx_save_name,Tx)
                     np.save(vbx_save_name,v_bx)
-                
-                
                 
                 print('\033[32mYour outputs have been saved into folder:',self.path,'\033[00m')
                 
