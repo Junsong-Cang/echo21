@@ -14,63 +14,6 @@ from .const import Zstar, Z_start, Z_end, Z_default, Z_cd, flipped_Z_default, ph
 from .echofuncs import funcs
 from .misc import *
 
-#--------------------------------------------------------------------------------------------
-
-#The following 2 functions will be useful if you want to save and load `pipeline` object.
-def save_pipeline(obj, filename):
-    '''Saves the class object :class:`pipeline`.
-    
-    Save the class object :class:`pipeline` for later use. It will save the object in the path where you have all the other outputs from this package.
-    
-    Parameters
-    ~~~~~~~~~~
-
-    obj : class
-        This should be the class object you want to save.
-        
-    filename : str
-        Give a file name only to your object, not the full path. obj will be saved in the ``obj.path`` directory.
-    
-    '''
-    try:
-        comm = MPI.COMM_WORLD
-        cpu_ind = comm.Get_rank()
-        Ncpu = comm.Get_size()
-    except:
-        cpu_ind=0
-    if cpu_ind==0:
-        if filename[-4:]!='.pkl': filename=filename+'.pkl'
-        fullpath = obj.path+filename
-        with open(fullpath, 'wb') as outp:  # Overwrites any existing file.
-            pickle.dump(obj, outp, pickle.HIGHEST_PROTOCOL)
-    return None
-    
-def load_pipeline(filename):
-    '''To load the class object :class:`pipeline`.
-    
-    Parameters
-    ~~~~~~~~~~
-
-    filename : str
-        This should be the name of the file you gave in :func:`save_pipeline()` for saving class object :class:`pipeline`. Important: provide the full path for ``filename`` with the extension ``.pkl``.
-        
-    Returns
-    ~~~~~~~
-
-    class object    
-    '''
-    try:
-        comm = MPI.COMM_WORLD
-        cpu_ind = comm.Get_rank()
-        Ncpu = comm.Get_size()
-    except:
-        cpu_ind=0
-    if cpu_ind==0:
-        with open(filename, 'rb') as inp:
-            echo21obj = pickle.load(inp)
-        print('Loaded the echo21 pipeline class object.\n')
-    return echo21obj
-#--------------------------------------------------------------------------------------------
 
 class pipeline():
     '''
@@ -145,7 +88,14 @@ class pipeline():
     Methods
     ~~~~~~~
     '''
-    def __init__(self,cosmo=None,astro= None, sfrd_dic=None,Z_eval=None,path='echo21_outputs/', verbose = 1):
+    def __init__(
+            self,
+            cosmo=None,
+            astro= None,
+            sfrd_dic=None,
+            Z_eval=None,
+            # path='echo21_outputs/', 
+            verbose = 1):
 
         if cosmo is None:
             cosmo = {
