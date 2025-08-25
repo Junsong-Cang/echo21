@@ -83,8 +83,9 @@ class pipeline():
             
         Tmin_vir : float, optional
             Minimum virial temperature (in units of kelvin) for star formation. Default value ``1e4``.
-
-
+    verbose : 
+            False - Run in silent mode, do not create folder or print out any info
+            True -  Create folder and print out any info
     Methods
     ~~~~~~~
     '''
@@ -94,7 +95,7 @@ class pipeline():
             astro= None,
             sfrd_dic=None,
             Z_eval=None,
-            # path='echo21_outputs/', 
+            path='/tmp_Some_non_existent_folder/', # I do not appreciate this feature so i am gonna set the default to something doomed to fail
             verbose = 1):
 
         if cosmo is None:
@@ -105,7 +106,6 @@ class pipeline():
             astro = {'fLy': 1, 'sLy': 2.64, 'fX': 1, 'wX': 1.5, 'fesc': 0.0106}
         if sfrd_dic is None:
             sfrd_dic = {'type': 'phy', 'hmf': 'press74', 'mdef': 'fof', 'Tmin_vir': 1e4}
-
         
         self.comm = pkl5.Intracomm(MPI.COMM_WORLD)
         self.cpu_ind = self.comm.Get_rank()
@@ -114,7 +114,6 @@ class pipeline():
         self.cosmo=cosmo
         self.astro=astro
         self.verbose = verbose
-
         
         ####
         #Here I decide whether astro, cosmo, or both parameters are varied.
@@ -230,7 +229,6 @@ class pipeline():
             print('\n\033[31mError! Only physically-motivated SFRD is allowed with IDM.')
             print('Terminating ...\033[00m\n')
             sys.exit()
-
         #Create an output folder where all results will be saved.
         self.path=path
         if self.cpu_ind==0:
@@ -245,7 +243,6 @@ class pipeline():
 
                 self.formatted_timestamp = self.timestamp[9:11]+':'+self.timestamp[11:13]+':'+self.timestamp[13:15]+' '+self.timestamp[6:8]+'/'+self.timestamp[4:6]+'/'+ self.timestamp[:4]
 
-            # save_pipeline(self,'pipe') # JSC: don't need this
         return None
 
     def _write_summary(self, elapsed_time):
