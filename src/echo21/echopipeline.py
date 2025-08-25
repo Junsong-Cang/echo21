@@ -96,7 +96,7 @@ class pipeline():
             sfrd_dic=None,
             Z_eval=None,
             path='/tmp_Some_non_existent_folder/', # I do not appreciate this feature so i am gonna set the default to something doomed to fail
-            verbose = 1):
+            verbose = 0):
 
         if cosmo is None:
             cosmo = {
