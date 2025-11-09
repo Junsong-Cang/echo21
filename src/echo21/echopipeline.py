@@ -294,7 +294,7 @@ class pipeline():
 
             self.formatted_timestamp = self.timestamp[9:11]+':'+self.timestamp[11:13]+':'+self.timestamp[13:15]+' '+self.timestamp[6:8]+'/'+self.timestamp[4:6]+'/'+ self.timestamp[:4]
 
-            save_pipeline(self,'pipe')
+            # save_pipeline(self,'pipe')
         return None
 
     def _write_summary(self, elapsed_time):
