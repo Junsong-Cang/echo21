@@ -550,6 +550,7 @@ class pipeline():
                 except:
                     print('\n{:.1f} % universe reionised by {:.1f}'.format(100*Q_Hii[-1], Z_temp[-1]-1))
 
+                '''
                 myfile = self._write_summary(elapsed_time=elapsed_time)
                 
                 if z50!=None:
@@ -562,6 +563,7 @@ class pipeline():
                 except: pass
                 myfile.write('\n')
                 myfile.close()
+                '''
                 #========================================================
 
                 print('\n\033[94m================ End of ECHO21 ================\033[00m\n')
@@ -723,7 +725,7 @@ class pipeline():
                 #========================================================
                 #Writing to a summary file
 
-                # myfile = self._write_summary(elapsed_time=elapsed_time)
+                myfile = self._write_summary(elapsed_time=elapsed_time)
                 myfile.write('\n{} models generated'.format(n_mod))
                 myfile.write('\nNumber of CPU(s) = {}'.format(self.n_cpu))
                 myfile.write('\n')
