@@ -10,10 +10,67 @@ from scipy.interpolate import CubicSpline
 from time import localtime, strftime
 from tqdm import tqdm
 
-from .const import Zstar, Z_start, Z_end, Z_default, Z_cd, flipped_Z_default, phy_sfrd_default_model, emp_sfrd_default_model, semi_emp_sfrd_default_model
+from .const import Zstar, Z_start, Z_end, Z_default, Z_da, Z_cd, flipped_Z_default, phy_sfrd_default_model, emp_sfrd_default_model, semi_emp_sfrd_default_model
 from .echofuncs import funcs
 from .misc import *
 
+#--------------------------------------------------------------------------------------------
+
+#The following 2 functions will be useful if you want to save and load `pipeline` object.
+def save_pipeline(obj, filename):
+    '''Saves the class object :class:`pipeline`.
+    
+    Save the class object :class:`pipeline` for later use. It will save the object in the path where you have all the other outputs from this package.
+    
+    Parameters
+    ~~~~~~~~~~
+
+    obj : class
+        This should be the class object you want to save.
+        
+    filename : str
+        Give a file name only to your object, not the full path. obj will be saved in the ``obj.path`` directory.
+    
+    '''
+    try:
+        comm = MPI.COMM_WORLD
+        cpu_ind = comm.Get_rank()
+        Ncpu = comm.Get_size()
+    except:
+        cpu_ind=0
+    if cpu_ind==0:
+        if filename[-4:]!='.pkl': filename=filename+'.pkl'
+        fullpath = obj.path+filename
+        with open(fullpath, 'wb') as outp:  # Overwrites any existing file.
+            pickle.dump(obj, outp, pickle.HIGHEST_PROTOCOL)
+    return None
+    
+def load_pipeline(filename):
+    '''To load the class object :class:`pipeline`.
+    
+    Parameters
+    ~~~~~~~~~~
+
+    filename : str
+        This should be the name of the file you gave in :func:`save_pipeline()` for saving class object :class:`pipeline`. Important: provide the full path for ``filename`` with the extension ``.pkl``.
+        
+    Returns
+    ~~~~~~~
+
+    class object    
+    '''
+    try:
+        comm = MPI.COMM_WORLD
+        cpu_ind = comm.Get_rank()
+        Ncpu = comm.Get_size()
+    except:
+        cpu_ind=0
+    if cpu_ind==0:
+        with open(filename, 'rb') as inp:
+            echo21obj = pickle.load(inp)
+        print('Loaded the echo21 pipeline class object.\n')
+    return echo21obj
+#--------------------------------------------------------------------------------------------
 
 class pipeline():
     '''
@@ -83,20 +140,12 @@ class pipeline():
             
         Tmin_vir : float, optional
             Minimum virial temperature (in units of kelvin) for star formation. Default value ``1e4``.
-    verbose : 
-            False - Run in silent mode, do not create folder or print out any info
-            True -  Create folder and print out any info
+
+
     Methods
     ~~~~~~~
     '''
-    def __init__(
-            self,
-            cosmo=None,
-            astro= None,
-            sfrd_dic=None,
-            Z_eval=None,
-            path='/tmp_Some_non_existent_folder/', # I do not appreciate this feature so i am gonna set the default to something doomed to fail
-            verbose = 0):
+    def __init__(self,cosmo=None,astro= None, sfrd_dic=None,Z_eval=None,path='echo21_outputs/'):
 
         if cosmo is None:
             cosmo = {
@@ -106,6 +155,7 @@ class pipeline():
             astro = {'fLy': 1, 'sLy': 2.64, 'fX': 1, 'wX': 1.5, 'fesc': 0.0106}
         if sfrd_dic is None:
             sfrd_dic = {'type': 'phy', 'hmf': 'press74', 'mdef': 'fof', 'Tmin_vir': 1e4}
+
         
         self.comm = pkl5.Intracomm(MPI.COMM_WORLD)
         self.cpu_ind = self.comm.Get_rank()
@@ -113,7 +163,7 @@ class pipeline():
 
         self.cosmo=cosmo
         self.astro=astro
-        self.verbose = verbose
+
         
         ####
         #Here I decide whether astro, cosmo, or both parameters are varied.
@@ -226,23 +276,25 @@ class pipeline():
         self.fesc = astro['fesc']
         
         if self.is_idm and self.sfrd_type == 'emp':
-            print('\n\033[31mError! Only physically-motivated SFRD is allowed with IDM.')
+            print('\n\033[31mError! Only physical and semi-empirical SFRD are allowed with IDM.')
             print('Terminating ...\033[00m\n')
             sys.exit()
+
+
         #Create an output folder where all results will be saved.
         self.path=path
         if self.cpu_ind==0:
-            if verbose:
-                if os.path.isdir(self.path)==False:
-                    print('The requested directory does not exist. Creating ',self.path)
-                    os.mkdir(self.path)
-            
-                self.timestamp = strftime("%Y%m%d-%H%M%S", localtime())
-                self.path = self.path + 'output_'+self.timestamp+'/'
+            if os.path.isdir(self.path)==False:
+                print('The requested directory does not exist. Creating ',self.path)
                 os.mkdir(self.path)
+            
+            self.timestamp = strftime("%Y%m%d-%H%M%S", localtime())
+            self.path = self.path + 'output_'+self.timestamp+'/'
+            os.mkdir(self.path)
 
-                self.formatted_timestamp = self.timestamp[9:11]+':'+self.timestamp[11:13]+':'+self.timestamp[13:15]+' '+self.timestamp[6:8]+'/'+self.timestamp[4:6]+'/'+ self.timestamp[:4]
+            self.formatted_timestamp = self.timestamp[9:11]+':'+self.timestamp[11:13]+':'+self.timestamp[13:15]+' '+self.timestamp[6:8]+'/'+self.timestamp[4:6]+'/'+ self.timestamp[:4]
 
+            save_pipeline(self,'pipe')
         return None
 
     def _write_summary(self, elapsed_time):
@@ -364,18 +416,15 @@ class pipeline():
     def glob_sig(self):
         '''
         This function solves the thermal and ionization history for default values of redshifts and then interpolates the quantities at your choice of redshifts. Then it solves reionization. Finally, it computes the spin temperature and hence the global 21-cm signal. A text file is generated which will contain the basic information about the simulation. 
-        '''
-        verbose = self.verbose
+        ''' 
+
         if self.model==0:
         #Cosmological and astrophysical parameters are fixed.
             if self.cpu_ind==0:
-                if verbose:
-                    print_banner()
-                    if self.is_idm:
-                        print('Dark matter type: interacting')
-                    else:
-                        print('Dark matter type: cold')
-                    print('\nBoth cosmological and astrophysical parameters are fixed.\n')
+                print_banner()
+                if self.is_idm: print('Dark matter type: interacting')
+                else: print('Dark matter type: cold')
+                print('\nBoth cosmological and astrophysical parameters are fixed.\n')
                 
                 st = time.process_time()
                 
@@ -402,7 +451,7 @@ class pipeline():
                     else:
                         Z_temp = self.Z_eval
                 
-                if verbose: print('Obtaining the thermal and ionisation history ...')
+                print('Obtaining the thermal and ionisation history ...')
                 sol = myobj.igm_solver(Z_eval=Z_default)
                 
                 xe = sol[0]
@@ -429,13 +478,13 @@ class pipeline():
                         splvbx = CubicSpline(flipped_Z_default, np.flip(v_bx))
                         v_bx = splvbx(self.Z_eval)
 
-                if verbose: print('Obtaining spin temperature ...')
+                print('Obtaining spin temperature ...')
                 Ts = myobj.hyfi_spin_temp(Z=Z_temp,xe=xe,Tk=Tk)
 
-                if verbose: print('Computing the 21-cm signal ...')
+                print('Computing the 21-cm signal ...')
                 T21_mod1 = myobj.hyfi_twentyone_cm(Z=Z_temp,xe=xe,Q=Q_Hii,Ts=Ts)
                 
-                if verbose: print('Done.')
+                print('Done.')
 
                 xe_save_name = self.path+'xe'
                 Q_save_name = self.path+'Q'
@@ -444,38 +493,29 @@ class pipeline():
                 Tcmb_save_name = self.path+'Tcmb'
                 T21_save_name = self.path+'T21'
                 z_save_name = self.path+'one_plus_z'
-                if verbose:
-                    np.save(xe_save_name,xe)
-                    np.save(Q_save_name,Q_Hii)
-                    np.save(Tk_save_name,Tk)
-                    np.save(Ts_save_name,Ts)
-                    np.save(Tcmb_save_name,myobj.basic_cosmo_Tcmb(Z_temp))
-                    np.save(T21_save_name,T21_mod1)
-                    np.save(z_save_name,Z_temp)
-                
-                if self.is_idm and verbose:
+
+                np.save(xe_save_name,xe)
+                np.save(Q_save_name,Q_Hii)
+                np.save(Tk_save_name,Tk)
+                np.save(Ts_save_name,Ts)
+                np.save(Tcmb_save_name,myobj.basic_cosmo_Tcmb(Z_temp))
+                np.save(T21_save_name,T21_mod1)
+                np.save(z_save_name,Z_temp)
+
+                if self.is_idm:
                     Tx_save_name = self.path+'Tx'
                     vbx_save_name = self.path+'vbx'
                     np.save(Tx_save_name,Tx)
                     np.save(vbx_save_name,v_bx)
                 
-                results = {
-                    'z': Z_temp,
-                    'T21': T21_mod1,
-                    'Ts': Ts,
-                    'Tk': Tk,
-                    'Tx': Tx,
-                    'xe': xe,
-                    'xH': 1 - Q_Hii - (1-Q_Hii) * xe,
-                    'Q': Q_Hii,
-                    }
-
-                if verbose: print('\033[32mYour outputs have been saved into folder:',self.path,'\033[00m')
+                
+                
+                print('\033[32mYour outputs have been saved into folder:',self.path,'\033[00m')
                 
                 et = time.process_time()
                 # get the execution time
                 elapsed_time = et - st
-                if verbose: print('\nExecution time: %.2f seconds' %elapsed_time)
+                print('\nExecution time: %.2f seconds' %elapsed_time)
 
                 #========================================================
                 #Writing to a summary file
@@ -499,24 +539,23 @@ class pipeline():
                         print('\n{:.1f} % universe reionised by {:.1f}'.format(100*Q_Hii[-1], Z_temp[-1]-1))
                 except:
                     print('\n{:.1f} % universe reionised by {:.1f}'.format(100*Q_Hii[-1], Z_temp[-1]-1))
-                if verbose:
-                    myfile = self._write_summary(elapsed_time=elapsed_time)
-                
-                    if z50!=None:
-                        myfile.write('\n50% reionisation complete at z = {:.2f}'.format(z50))
-                        if z100!=None:
-                            myfile.write("\nReionisation complete at z = {:.2f}".format(z100))
-                            myfile.write("\nTotal Thomson-scattering optical depth = {:.4f}".format(tau_e))
 
-                    try: myfile.write('\n\nStrongest 21-cm signal is {:.2f} mK, observed at z = {:.2f}'.format(max_T21,max_z-1))
-                    except: pass
-                    myfile.write('\n')
-                    myfile.close()
+                myfile = self._write_summary(elapsed_time=elapsed_time)
+                
+                if z50!=None:
+                    myfile.write('\n50% reionisation complete at z = {:.2f}'.format(z50))
+                    if z100!=None:
+                        myfile.write("\nReionisation complete at z = {:.2f}".format(z100))
+                        myfile.write("\nTotal Thomson-scattering optical depth = {:.4f}".format(tau_e))
+
+                try: myfile.write('\n\nStrongest 21-cm signal is {:.2f} mK, observed at z = {:.2f}'.format(max_T21,max_z-1))
+                except: pass
+                myfile.write('\n')
+                myfile.close()
                 #========================================================
 
-                if verbose: print('\n\033[94m================ End of ECHO21 ================\033[00m\n')
-                
-                return results
+                print('\n\033[94m================ End of ECHO21 ================\033[00m\n')
+                return None
 
 #=========================================================================
 #=========================================================================
@@ -534,7 +573,6 @@ class pipeline():
             else:
                 myobj_da = funcs(Ho=self.Ho,Om_m=self.Om_m,Om_b=self.Om_b,sig8=self.sig8,ns=self.ns,Tcmbo=self.Tcmbo,Yp=self.Yp)
 
-            Z_da = np.linspace(Z_start,Zstar,2000)
             sol_da = myobj_da.igm_solver(Z_eval=Z_da)
             xe_da = sol_da[0]
             Tk_da = sol_da[1]
