@@ -286,11 +286,11 @@ class pipeline():
         if self.cpu_ind==0:
             if os.path.isdir(self.path)==False:
                 print('The requested directory does not exist. Creating ',self.path)
-                os.mkdir(self.path)
+                # os.mkdir(self.path)
             
             self.timestamp = strftime("%Y%m%d-%H%M%S", localtime())
             self.path = self.path + 'output_'+self.timestamp+'/'
-            os.mkdir(self.path)
+            # os.mkdir(self.path)
 
             self.formatted_timestamp = self.timestamp[9:11]+':'+self.timestamp[11:13]+':'+self.timestamp[13:15]+' '+self.timestamp[6:8]+'/'+self.timestamp[4:6]+'/'+ self.timestamp[:4]
 
@@ -493,23 +493,33 @@ class pipeline():
                 Tcmb_save_name = self.path+'Tcmb'
                 T21_save_name = self.path+'T21'
                 z_save_name = self.path+'one_plus_z'
-
-                np.save(xe_save_name,xe)
-                np.save(Q_save_name,Q_Hii)
-                np.save(Tk_save_name,Tk)
-                np.save(Ts_save_name,Ts)
-                np.save(Tcmb_save_name,myobj.basic_cosmo_Tcmb(Z_temp))
-                np.save(T21_save_name,T21_mod1)
-                np.save(z_save_name,Z_temp)
+                
+                # JSC: don't save things, return them
+                results = {}
+                save_results_to_files = 0
+                if save_results_to_files:
+                    np.save(xe_save_name,xe)
+                    np.save(Q_save_name,Q_Hii)
+                    np.save(Tk_save_name,Tk)
+                    np.save(Ts_save_name,Ts)
+                    np.save(Tcmb_save_name,myobj.basic_cosmo_Tcmb(Z_temp))
+                    np.save(T21_save_name,T21_mod1)
+                    np.save(z_save_name,Z_temp)
+                
+                results['Tb'] = T21_mod1
+                results['Tk'] = Tk
+                results['Ts'] = Ts
+                results['z'] = Z_temp - 1.0
+                results['xe'] = xe
+                results['Q_Hii'] = Q_Hii
 
                 if self.is_idm:
                     Tx_save_name = self.path+'Tx'
                     vbx_save_name = self.path+'vbx'
-                    np.save(Tx_save_name,Tx)
-                    np.save(vbx_save_name,v_bx)
-                
-                
-                
+                    #np.save(Tx_save_name,Tx)
+                    #np.save(vbx_save_name,v_bx)
+                    results['Tx'] = Tx
+
                 print('\033[32mYour outputs have been saved into folder:',self.path,'\033[00m')
                 
                 et = time.process_time()
@@ -555,7 +565,7 @@ class pipeline():
                 #========================================================
 
                 print('\n\033[94m================ End of ECHO21 ================\033[00m\n')
-                return None
+                return results
 
 #=========================================================================
 #=========================================================================
