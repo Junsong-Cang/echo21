@@ -723,7 +723,7 @@ class pipeline():
                 #========================================================
                 #Writing to a summary file
 
-                myfile = self._write_summary(elapsed_time=elapsed_time)
+                # myfile = self._write_summary(elapsed_time=elapsed_time)
                 myfile.write('\n{} models generated'.format(n_mod))
                 myfile.write('\nNumber of CPU(s) = {}'.format(self.n_cpu))
                 myfile.write('\n')
